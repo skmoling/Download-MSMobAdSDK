@@ -29,7 +29,10 @@ jobs:
           mkdir -p project
           cd project
 
-          # 1. 生成最小工程描述文件
+          # 1. 先建空源码目录，避免 xcodegen 报错
+          mkdir -p Dummy
+
+          # 2. 生成最小工程描述文件
           cat > project.yml <<'EOF'
           name: Dummy
           options:
@@ -42,10 +45,10 @@ jobs:
               sources: [Dummy]
           EOF
 
-          # 2. 用 xcodegen 生成真正的 Dummy.xcodeproj
+          # 3. 用 xcodegen 生成真正的 Dummy.xcodeproj
           xcodegen generate
 
-          # 3. 写入 Podfile
+          # 4. 写入 Podfile
           cat > Podfile <<'EOF'
           platform :ios, '12.0'
           target 'Dummy' do
