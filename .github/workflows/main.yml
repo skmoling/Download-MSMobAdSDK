@@ -1,7 +1,7 @@
 name: Download MSMobAdSDK Pod
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 允许手动触发
 
 jobs:
   download-pod:
@@ -23,19 +23,6 @@ jobs:
       - name: 安装 CocoaPods
         run: sudo gem install cocoapods
 
-      - name: 配置国内镜像源
-        run: |
-          # 检查 master 仓库是否存在
-          if [ ! -d ~/.cocoapods/repos/master ]; then
-            echo "master 仓库不存在，直接添加清华源"
-            pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
-          else
-            echo "master 仓库存在，先删除再添加"
-            pod repo remove master
-            pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
-          fi
-          pod repo update
-
       - name: 创建 Podfile
         run: |
           mkdir -p project
@@ -50,8 +37,6 @@ jobs:
       - name: 安装 Pod 依赖
         run: |
           cd project
-          # 使用 pod repo update 和 pod install 组合，避免 Xcode 项目问题
-          pod repo update
           pod install --repo-update
 
       - name: 打包 Pods 目录
