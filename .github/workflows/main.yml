@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1. 下载 Pods 并上传 artifact（你原来的代码，一行没动）
+  # 1. 下载 Pods 并上传 artifact（零改动）
   download-pod:
     runs-on: macos-latest
     steps:
@@ -67,22 +67,22 @@ jobs:
 
   # 2. 云端编译 & 量体积
   measure-size:
-    needs: download-pod          # 等 Pods 包上传完
+    needs: download-pod
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4   # 空仓库即可
+      - uses: actions/checkout@v4
 
       - name: 装工具
         run: |
           sudo gem install cocoapods
           brew install xcodegen
 
-      - name: 下载刚才的 Pods 包
+      - name: 下载 Pods 包
         uses: actions/download-artifact@v4
         with:
           name: MSMobAdSDK-Pods-Folder
 
-      - name: 解压 & 生成最小工程
+      - name: 解压 & 生成工程并 pod install
         run: |
           unzip -q MSMobAdSDK_Pods.zip -d project
           cd project
@@ -99,8 +99,7 @@ jobs:
               sources: [Dummy]
           EOF
           xcodegen generate
-          # 复用已下好的 Pods，不再 pod install
-          ls -lh Pods/   # 仅检查
+          pod install --repo-update   # 关键：生成 .xcworkspace
 
       - name: Archive
         run: |
@@ -135,7 +134,7 @@ jobs:
                      -exportPath build \
                      -exportOptionsPlist ExportOptions.plist
 
-      - name: 计算可执行文件大小并写 Summary
+      - name: 计算体积并写 Summary
         run: |
           cd project/build
           unzip -q Dummy.ipa
@@ -145,7 +144,7 @@ jobs:
           echo "### SDK 编译后真实可执行文件大小" >> $GITHUB_STEP_SUMMARY
           echo "- **${SIZE_MB} MiB**"               >> $GITHUB_STEP_SUMMARY
 
-      - name: 上传 IPA（可选）
+      - name: 上传 IPA
         uses: actions/upload-artifact@v4
         with:
           name: Dummy-IPA
