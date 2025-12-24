@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # 1. 下载 Pods 并上传 artifact
   download-pod:
     runs-on: macos-latest
     steps:
@@ -37,6 +38,9 @@ jobs:
               type: application
               platform: iOS
               sources: [Dummy]
+              settings:
+                PRODUCT_BUNDLE_IDENTIFIER: com.test.dummy
+                IPHONEOS_DEPLOYMENT_TARGET: 12.0
           EOF
           xcodegen generate
           cat > Podfile <<'EOF'
@@ -47,7 +51,6 @@ jobs:
           EOF
           pod install --repo-update
 
-      # ****** 改动 1：把 Podfile 也一起打包 ******
       - name: 打包 Pods + Podfile
         run: |
           cd project
@@ -60,6 +63,7 @@ jobs:
           path: MSMobAdSDK_Pods.zip
           retention-days: 30
 
+  # 2. 云端编译 & 量体积
   measure-size:
     needs: download-pod
     runs-on: macos-latest
@@ -76,8 +80,7 @@ jobs:
         with:
           name: MSMobAdSDK-Pods-Folder
 
-      # ****** 改动 2：解压后就有 Podfile 了 ******
-      - name: 解压 & 生成工程
+      - name: 解压 & 生成工程并 pod install
         run: |
           unzip -q MSMobAdSDK_Pods.zip -d project
           cd project
@@ -92,9 +95,12 @@ jobs:
               type: application
               platform: iOS
               sources: [Dummy]
+              settings:
+                PRODUCT_BUNDLE_IDENTIFIER: com.test.dummy
+                IPHONEOS_DEPLOYMENT_TARGET: 12.0
           EOF
           xcodegen generate
-          pod install --repo-update   # 现在能找到 Podfile 了
+          pod install --repo-update
 
       - name: Archive
         run: |
