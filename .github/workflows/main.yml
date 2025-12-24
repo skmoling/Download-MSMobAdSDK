@@ -8,13 +8,10 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1. 拉代码（虽然仓库里什么都没有，但 checkout 是规范动作）
       - name: 拉取代码仓库
         uses: actions/checkout@v4
 
-      # 2. CocoaPods 缓存，加快重复运行
       - name: 设置 CocoaPods 缓存
-        id: cache-pods
         uses: actions/cache@v3
         with:
           path: ~/Library/Caches/CocoaPods/
@@ -22,39 +19,50 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
-      # 3. 确保机器上有 CocoaPods
-      - name: 安装 CocoaPods
-        run: sudo gem install cocoapods
+      - name: 安装依赖工具
+        run: |
+          sudo gem install cocoapods
+          brew install xcodegen
 
-      # 4. 创建目录、Podfile，并显式指定 project 路径
-      - name: 创建 Podfile 和空 Xcode 工程目录
+      - name: 生成最小 Xcode 工程 + Podfile
         run: |
           mkdir -p project
           cd project
-          # 4-1 写入 Podfile（关键：project 行）
+
+          # 1. 生成最小工程描述文件
+          cat > project.yml <<'EOF'
+          name: Dummy
+          options:
+            deploymentTarget:
+              iOS: "12.0"
+          targets:
+            Dummy:
+              type: application
+              platform: iOS
+              sources: [Dummy]
+          EOF
+
+          # 2. 用 xcodegen 生成真正的 Dummy.xcodeproj
+          xcodegen generate
+
+          # 3. 写入 Podfile
           cat > Podfile <<'EOF'
           platform :ios, '12.0'
-          project 'Dummy.xcodeproj'   # 显式告诉 CocoaPods 用哪个工程
           target 'Dummy' do
             pod 'MSMobAdSDK/MS','2.7.12.3'
           end
           EOF
-          # 4-2 只需要一个空目录即可，不需要真的 pbxproj
-          mkdir -p Dummy.xcodeproj
 
-      # 5. 安装依赖
       - name: 安装 Pod 依赖
         run: |
           cd project
           pod install --repo-update
 
-      # 6. 打包 Pods 目录
       - name: 打包 Pods 目录
         run: |
           cd project
           zip -r ../MSMobAdSDK_Pods.zip Pods
 
-      # 7. 上传产物
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
