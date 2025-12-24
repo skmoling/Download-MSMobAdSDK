@@ -66,7 +66,7 @@ jobs:
           path: MSMobAdSDK_Pods.zip
           retention-days: 30
 
-  # 2. 云端编译 & 量体积（无签名）
+  # 2. 云端编译 & 量体积（仅 Build，不 Archive）
   measure-size:
     needs: download-pod
     runs-on: macos-latest
@@ -106,57 +106,24 @@ jobs:
           xcodegen generate
           pod install --repo-update
 
-      - name: Archive（无签名）
+      - name: Build（仅链接，不 Archive）
         run: |
           cd project
-          xcodebuild archive \
+          xcodebuild build \
                      -workspace Dummy.xcworkspace \
                      -scheme Dummy \
                      -configuration Release \
                      -destination 'generic/platform=iOS' \
-                     -archivePath build/Dummy.xcarchive \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGN_IDENTITY="" \
                      DEVELOPMENT_TEAM="" \
                      PROVISIONING_PROFILE_SPECIFIER=""
 
-      - name: Export IPA（Ad-hoc）
+      - name: 计算可执行文件体积
         run: |
           cd project
-          cat > ExportOptions.plist <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>ad-hoc</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <false/>
-          </dict>
-          </plist>
-          EOF
-          xcodebuild -exportArchive \
-                     -archivePath build/Dummy.xcarchive \
-                     -exportPath build \
-                     -exportOptionsPlist ExportOptions.plist
-
-      - name: 计算体积并写 Summary
-        run: |
-          cd project/build
-          unzip -q Dummy.ipa
-          EXEC=Payload/Dummy.app/Dummy
+          EXEC=Build/Products/Release-iphoneos/Dummy.app/Dummy
           SIZE=$(stat -f%z "$EXEC")
           SIZE_MB=$(( SIZE / 1024 / 1024 ))
-          echo "### SDK 编译后真实可执行文件大小" >> $GITHUB_STEP_SUMMARY
-          echo "- **${SIZE_MB} MiB**"               >> $GITHUB_STEP_SUMMARY
-
-      - name: 上传 IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Dummy-IPA
-          path: project/build/Dummy.ipa
-          retention-days: 7
+          echo "### SDK 链接后可执行文件大小" >> $GITHUB_STEP_SUMMARY
+          echo "- **${SIZE_MB} MiB**"          >> $GITHUB_STEP_SUMMARY
