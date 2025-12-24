@@ -27,37 +27,31 @@ jobs:
         run: |
           mkdir -p project
           cd project
-          mkdir -p Dummy
           cat > project.yml <<'EOF'
-          name: Dummy
+          name: SDKSize
           options:
             deploymentTarget:
               iOS: "12.0"
           targets:
-            Dummy:
-              type: application
+            SDKSize:
+              type: library.static
               platform: iOS
-              sources: [Dummy]
-              settings:
-                PRODUCT_BUNDLE_IDENTIFIER: com.test.dummy
-                IPHONEOS_DEPLOYMENT_TARGET: 12.0
-                CODE_SIGN_STYLE: Manual
-                CODE_SIGN_IDENTITY: iPhone Developer
-                DEVELOPMENT_TEAM: ""
+              sources: [Sources]
           EOF
-          xcodegen generate
+          mkdir Sources
+          echo 'void dummy(){}' > Sources/dummy.m   # 空符号，让链接器能完成
           cat > Podfile <<'EOF'
           platform :ios, '12.0'
-          target 'Dummy' do
+          target 'SDKSize' do
             pod 'MSMobAdSDK/MS','2.7.12.3'
           end
           EOF
           pod install --repo-update
 
-      - name: 打包 Pods + Podfile
+      - name: 打包 Pods + Podfile + project.yml
         run: |
           cd project
-          zip -r ../MSMobAdSDK_Pods.zip Pods Podfile
+          zip -r ../MSMobAdSDK_Pods.zip Pods Podfile project.yml Sources
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
@@ -66,7 +60,7 @@ jobs:
           path: MSMobAdSDK_Pods.zip
           retention-days: 30
 
-  # 2. 云端编译 & 量体积（仅 Build，不 Archive）
+  # 2. 云端编译 & 量体积（静态库，无签名、无 plist、无 validate）
   measure-size:
     needs: download-pod
     runs-on: macos-latest
@@ -87,43 +81,24 @@ jobs:
         run: |
           unzip -q MSMobAdSDK_Pods.zip -d project
           cd project
-          mkdir -p Dummy
-          cat > project.yml <<'EOF'
-          name: Dummy
-          options:
-            deploymentTarget:
-              iOS: "12.0"
-          targets:
-            Dummy:
-              type: application
-              platform: iOS
-              sources: [Dummy]
-              settings:
-                PRODUCT_BUNDLE_IDENTIFIER: com.test.dummy
-                IPHONEOS_DEPLOYMENT_TARGET: 12.0
-                CODE_SIGNING_ALLOWED: NO
-          EOF
           xcodegen generate
           pod install --repo-update
 
-      - name: Build（仅链接，不 Archive）
+      - name: Build（静态库，无签名）
         run: |
           cd project
           xcodebuild build \
-                     -workspace Dummy.xcworkspace \
-                     -scheme Dummy \
+                     -workspace SDKSize.xcworkspace \
+                     -scheme SDKSize \
                      -configuration Release \
                      -destination 'generic/platform=iOS' \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGN_IDENTITY="" \
-                     DEVELOPMENT_TEAM="" \
-                     PROVISIONING_PROFILE_SPECIFIER=""
+                     CODE_SIGNING_ALLOWED=NO
 
-      - name: 计算可执行文件体积
+      - name: 计算静态库体积
         run: |
           cd project
-          EXEC=Build/Products/Release-iphoneos/Dummy.app/Dummy
-          SIZE=$(stat -f%z "$EXEC")
+          LIB=Build/Products/Release-iphoneos/libSDKSize.a
+          SIZE=$(stat -f%z "$LIB")
           SIZE_MB=$(( SIZE / 1024 / 1024 ))
-          echo "### SDK 链接后可执行文件大小" >> $GITHUB_STEP_SUMMARY
+          echo "### SDK 链接后静态库大小" >> $GITHUB_STEP_SUMMARY
           echo "- **${SIZE_MB} MiB**"          >> $GITHUB_STEP_SUMMARY
