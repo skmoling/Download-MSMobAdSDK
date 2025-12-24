@@ -66,7 +66,7 @@ jobs:
           path: MSMobAdSDK_Pods.zip
           retention-days: 30
 
-  # 2. 云端编译 & 量体积
+  # 2. 云端编译 & 量体积（无签名）
   measure-size:
     needs: download-pod
     runs-on: macos-latest
@@ -101,23 +101,27 @@ jobs:
               settings:
                 PRODUCT_BUNDLE_IDENTIFIER: com.test.dummy
                 IPHONEOS_DEPLOYMENT_TARGET: 12.0
-                CODE_SIGN_STYLE: Manual
-                CODE_SIGN_IDENTITY: iPhone Developer
-                DEVELOPMENT_TEAM: ""
+                CODE_SIGNING_ALLOWED: NO
           EOF
           xcodegen generate
           pod install --repo-update
 
-      - name: Archive
+      - name: Archive（无签名）
         run: |
           cd project
-          xcodebuild -workspace Dummy.xcworkspace \
+          xcodebuild archive \
+                     -workspace Dummy.xcworkspace \
                      -scheme Dummy \
                      -configuration Release \
                      -destination 'generic/platform=iOS' \
-                     archive -archivePath build/Dummy.xcarchive
+                     -archivePath build/Dummy.xcarchive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     DEVELOPMENT_TEAM="" \
+                     PROVISIONING_PROFILE_SPECIFIER="" \
+                     -allowProvisioningUpdates NO
 
-      - name: Export IPA
+      - name: Export IPA（Ad-hoc）
         run: |
           cd project
           cat > ExportOptions.plist <<'EOF'
@@ -126,13 +130,13 @@ jobs:
           <plist version="1.0">
           <dict>
             <key>method</key>
-            <string>app-store</string>
+            <string>ad-hoc</string>
             <key>stripSwiftSymbols</key>
             <true/>
             <key>uploadBitcode</key>
             <false/>
             <key>uploadSymbols</key>
-            <true/>
+            <false/>
           </dict>
           </plist>
           EOF
