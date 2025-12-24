@@ -4,12 +4,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1. 下载 Pods 并上传 artifact（零改动）
   download-pod:
     runs-on: macos-latest
     steps:
-      - name: 拉取代码仓库
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: 设置 CocoaPods 缓存
         uses: actions/cache@v3
@@ -24,7 +22,7 @@ jobs:
           sudo gem install cocoapods
           brew install xcodegen
 
-      - name: 生成最小 Xcode 工程 + Podfile
+      - name: 生成工程 & Podfile & 安装依赖
         run: |
           mkdir -p project
           cd project
@@ -47,25 +45,21 @@ jobs:
             pod 'MSMobAdSDK/MS','2.7.12.3'
           end
           EOF
-
-      - name: 安装 Pod 依赖
-        run: |
-          cd project
           pod install --repo-update
 
-      - name: 打包 Pods 目录
+      # ****** 改动 1：把 Podfile 也一起打包 ******
+      - name: 打包 Pods + Podfile
         run: |
           cd project
-          zip -r ../MSMobAdSDK_Pods.zip Pods
+          zip -r ../MSMobAdSDK_Pods.zip Pods Podfile
 
-      - name: 上传构建产物
+      - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: MSMobAdSDK-Pods-Folder
           path: MSMobAdSDK_Pods.zip
           retention-days: 30
 
-  # 2. 云端编译 & 量体积
   measure-size:
     needs: download-pod
     runs-on: macos-latest
@@ -82,7 +76,8 @@ jobs:
         with:
           name: MSMobAdSDK-Pods-Folder
 
-      - name: 解压 & 生成工程并 pod install
+      # ****** 改动 2：解压后就有 Podfile 了 ******
+      - name: 解压 & 生成工程
         run: |
           unzip -q MSMobAdSDK_Pods.zip -d project
           cd project
@@ -99,7 +94,7 @@ jobs:
               sources: [Dummy]
           EOF
           xcodegen generate
-          pod install --repo-update   # 关键：生成 .xcworkspace
+          pod install --repo-update   # 现在能找到 Podfile 了
 
       - name: Archive
         run: |
