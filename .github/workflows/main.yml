@@ -25,7 +25,6 @@ jobs:
 
       - name: 配置国内镜像源
         run: |
-          # 检查 master 仓库是否存在，如果不存在则直接添加
           if [ ! -d ~/.cocoapods/repos/master ]; then
             echo "master 仓库不存在，直接添加清华源"
             pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
@@ -47,10 +46,20 @@ jobs:
           end
           EOF
 
+      - name: 创建虚拟 Xcode 项目
+        run: |
+          cd project
+          # 创建一个空的 Xcode 项目（只需要 .xcodeproj 文件）
+          xcodebuild -create-xcworkspace -silent
+          # 或者使用更简单的方法创建一个空的 .xcodeproj
+          mkdir -p Dummy.xcodeproj
+          touch Dummy.xcodeproj/project.pbxproj
+
       - name: 安装 Pod 依赖
         run: |
           cd project
-          pod install --repo-update
+          # 指定项目路径
+          pod install --project-directory=. --repo-update
 
       - name: 打包 Pods 目录
         run: |
