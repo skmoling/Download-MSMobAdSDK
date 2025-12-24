@@ -25,17 +25,21 @@ jobs:
 
       - name: 配置国内镜像源
         run: |
-          pod repo remove master
-          pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
+          # 检查 master 仓库是否存在，如果不存在则直接添加
+          if [ ! -d ~/.cocoapods/repos/master ]; then
+            echo "master 仓库不存在，直接添加清华源"
+            pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
+          else
+            echo "master 仓库存在，先删除再添加"
+            pod repo remove master
+            pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
+          fi
           pod repo update
 
       - name: 创建项目目录和 Podfile
         run: |
-          # 创建项目目录
           mkdir -p project
           cd project
-          
-          # 创建一个简单的 Podfile（不需要 Xcode 项目）
           cat > Podfile << EOF
           platform :ios, '12.0'
           target 'Dummy' do
