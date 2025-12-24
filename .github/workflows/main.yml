@@ -1,40 +1,42 @@
 name: Download MSMobAdSDK Pod
 
 on:
-  workflow_dispatch: # 允许你在网页上手动点击按钮运行
+  workflow_dispatch: # 允许手动运行
 
 jobs:
   download-pod:
-    runs-on: macos-latest # 指定运行环境为 macOS（只有 Mac 能完美运行 CocoaPods）
+    runs-on: macos-latest
 
     steps:
-      - name: 拉取代码仓库（虽然是空的，但这一步是必须的）
+      - name: 拉取代码仓库
         uses: actions/checkout@v4
 
       - name: 安装 CocoaPods
         run: sudo gem install cocoapods
 
-      - name: 拉取 MSMobAdSDK 源码
+      - name: 创建 Podfile
         run: |
-          # 创建一个临时目录存放下载的文件
-          mkdir -p MSMobAdSDK_Output
-          
-          # 执行 pod download 命令
-          # --hide-stderr: 隐藏不必要的报错信息
-          # . : 表示下载到当前目录
-          # MSMobAdSDK/MS 2.7.12.3: 你指定的库名和版本
-          pod download --hide-stderr . MSMobAdSDK/MS 2.7.12.3 || true
-          
-          # 将下载到的文件移动到 Output 文件夹（如果文件名不确定，直接移动整个目录）
-          # 注意：CocoaPods 下载后的文件结构可能比较深，这里做一个简单的打包处理
-          mv MSMobAdSDK MSMobAdSDK_Output/ 2>/dev/null || echo "移动完成或文件已存在"
+          mkdir -p project
+          cd project
+          pod init
+          echo "platform :ios, '12.0'" >> Podfile
+          echo "target 'Dummy' do" >> Podfile
+          echo "  pod 'MSMobAdSDK/MS','2.7.12.3'" >> Podfile
+          echo "end" >> Podfile
 
-      - name: 打包成 Zip
-        run: zip -r MSMobAdSDK.zip MSMobAdSDK_Output
+      - name: 安装 Pod 依赖
+        run: |
+          cd project
+          pod install --repo-update
+
+      - name: 打包 Pods 目录
+        run: |
+          cd project
+          zip -r ../MSMobAdSDK_Pods.zip Pods
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: MSMobAdSDK-2.7.12.3-Files
-          path: MSMobAdSDK.zip
-          retention-days: 90 # 文件保留 90 天，记得下载
+          name: MSMobAdSDK-Pods-Folder
+          path: MSMobAdSDK_Pods.zip
+          retention-days: 30
