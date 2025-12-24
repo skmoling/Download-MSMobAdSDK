@@ -1,7 +1,7 @@
 name: Download MSMobAdSDK Pod
 
 on:
-  workflow_dispatch: # 允许手动运行
+  workflow_dispatch:
 
 jobs:
   download-pod:
@@ -11,18 +11,37 @@ jobs:
       - name: 拉取代码仓库
         uses: actions/checkout@v4
 
+      - name: 设置 CocoaPods 缓存
+        id: cache-pods
+        uses: actions/cache@v3
+        with:
+          path: ~/Library/Caches/CocoaPods/
+          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
       - name: 安装 CocoaPods
         run: sudo gem install cocoapods
 
-      - name: 创建 Podfile
+      - name: 配置国内镜像源
         run: |
+          pod repo remove master
+          pod repo add master https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git
+          pod repo update
+
+      - name: 创建项目目录和 Podfile
+        run: |
+          # 创建项目目录
           mkdir -p project
           cd project
-          pod init
-          echo "platform :ios, '12.0'" >> Podfile
-          echo "target 'Dummy' do" >> Podfile
-          echo "  pod 'MSMobAdSDK/MS','2.7.12.3'" >> Podfile
-          echo "end" >> Podfile
+          
+          # 创建一个简单的 Podfile（不需要 Xcode 项目）
+          cat > Podfile << EOF
+          platform :ios, '12.0'
+          target 'Dummy' do
+            pod 'MSMobAdSDK/MS','2.7.12.3'
+          end
+          EOF
 
       - name: 安装 Pod 依赖
         run: |
