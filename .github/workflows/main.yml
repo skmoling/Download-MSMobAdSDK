@@ -8,7 +8,8 @@ jobs:
   download-pod:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 拉取代码仓库
+        uses: actions/checkout@v4
 
       - name: 设置 CocoaPods 缓存
         uses: actions/cache@v3
@@ -27,6 +28,7 @@ jobs:
         run: |
           mkdir -p project
           cd project
+          # 1. 工程描述（静态库）
           cat > project.yml <<'EOF'
           name: SDKSize
           options:
@@ -38,17 +40,22 @@ jobs:
               platform: iOS
               sources: [Sources]
           EOF
+          # 2. 空源文件
           mkdir Sources
-          echo 'void dummy(){}' > Sources/dummy.m   # 空符号，让链接器能完成
+          echo 'void dummy(){}' > Sources/dummy.m
+          # 3. Podfile
           cat > Podfile <<'EOF'
           platform :ios, '12.0'
           target 'SDKSize' do
             pod 'MSMobAdSDK/MS','2.7.12.3'
           end
           EOF
+          # 4. 先 xcodegen 生成 .xcodeproj
+          xcodegen generate
+          # 5. 再 pod install
           pod install --repo-update
 
-      - name: 打包 Pods + Podfile + project.yml
+      - name: 打包 Pods + 工程文件 + 源码
         run: |
           cd project
           zip -r ../MSMobAdSDK_Pods.zip Pods Podfile project.yml Sources
